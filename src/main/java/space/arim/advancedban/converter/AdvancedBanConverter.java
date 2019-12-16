@@ -122,10 +122,6 @@ public class AdvancedBanConverter implements AutoCloseable {
 		return new Object[] {punishment.getName(), punishment.getUuid(), punishment.getReason(), punishment.getOperator(), punishment.getType().name(), punishment.getStart(), punishment.getEnd(), punishment.getCalculation()};
 	}
 	
-	private void addPunishment(Punishment punishment) {
-		db.executeStatement(SQLQuery.INSERT_PUNISHMENT, punParams(punishment));
-	}
-	
 	private void addPunishmentHistory(Punishment punishment) {
 		db.executeStatement(SQLQuery.INSERT_PUNISHMENT_HISTORY, punParams(punishment));
 	}
