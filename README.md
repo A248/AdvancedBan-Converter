@@ -8,7 +8,7 @@ AdvancedBan-Converter is **completely untested** so far. Please be patient. The 
 
 ## Usage
 
-This guide assumes you have a minecraft server with [AdvancedBan](https://github.com/AdvancedBan) installed.
+This guide assumes you have a minecraft server with [AdvancedBan](https://github.com/DevLeoko/AdvancedBan) installed.
 
 1. Stop the server.
 2. Change your database settings to your preferred new database in the AdvancedBan configuration.
