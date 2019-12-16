@@ -1,0 +1,6 @@
+name: ${project.name}
+main: ${project.groupId}.AdvancedBanConverterBungee
+version: ${project.version}
+author: A248
+description: ${project.description}
+depends: AdvancedBan
