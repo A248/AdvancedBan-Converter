@@ -111,11 +111,7 @@ public class AdvancedBanConverter implements AutoCloseable {
 			}
 		}
 		punishmentsOld.forEach((punishment) -> {
-			if (punishmentNew.containsKey(punishment.getId())) {
-				rewriteIdThenAddPunishment(punishment);
-			} else {
-				addPunishment(punishment);
-			}
+			rewriteIdThenAddPunishment(punishment);
 		});
 		historyOld.forEach((punishment) -> {
 			addPunishmentHistory(punishment);
@@ -141,7 +137,9 @@ public class AdvancedBanConverter implements AutoCloseable {
 			idField.set(punishment, -1);
 			db.executeStatement(SQLQuery.INSERT_PUNISHMENT, punParams(punishment));
 			try (ResultSet rs = db.executeResultStatement(SQLQuery.SELECT_EXACT_PUNISHMENT, punishment.getUuid(), punishment.getStart(), punishment.getType().name())){
-				if (!rs.next()) {
+				if (rs.next()) {
+					idField.set(punishment, rs.getInt("id"));
+				} else {
 					error("Could not rewrite id for " + punishment);
 				}
 			}
