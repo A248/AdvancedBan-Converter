@@ -18,3 +18,7 @@ This guide assumes you have a minecraft server with [AdvancedBan](https://github
 5. Scan the server console in case an error occurred. If everything went fine, hooray! Otherwise, contact me for a fix.
 6. Uninstall/remove AdvancedBan-Converter.jar from your plugins folder.
 7. Restart your server without AdvancedBan-Converter.jar installed. (If you do not remove AdvancedBan-Converter.jar, I assume no responsibility for any possible damages. While it is engineered to not cause any problems in these cases, I make no guarantees).
+
+## Download
+
+[Direct download](github.com/A248/AdvancedBan-Converter/raw/master/AdvancedBan-Converter.jar)
