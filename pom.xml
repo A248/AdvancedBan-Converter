@@ -10,6 +10,10 @@
 	<name>AdvancedBan-Converter</name>
 	<description>Funnels AdvancedBan data from local to external storage or vice-versa.</description>
 	
+	<properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+	</properties>
+	
 	<build>
 		<finalName>AdvancedBan-Converter</finalName>
 		<sourceDirectory>src/main/java</sourceDirectory>
