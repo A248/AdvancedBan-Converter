@@ -4,7 +4,7 @@ Funnels AdvancedBan data from local to external storage or vice-versa.
 
 ## Notice
 
-Completely untested so far. Be patient - the program was only released on this Monday (16 Dec 19).
+AdvancedBan-Converter is **completely untested** so far. Please be patient. The first pre-release was only this Monday (16 December 2019).
 
 ## Usage
 
