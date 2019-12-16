@@ -161,7 +161,7 @@ public class AdvancedBanConverter implements AutoCloseable {
                 return;
             }
             try {
-                connection = DriverManager.getConnection("jdbc:hsqldb:file:" + new File(folder, "AdvancedBan") + "/data/storage;hsqldb.lock_file=false", "SA", "");
+                connection = DriverManager.getConnection("jdbc:hsqldb:file:" + new File(folder.getParentFile(), "AdvancedBan") + "/data/storage;hsqldb.lock_file=false", "SA", "");
             } catch (SQLException ex) {
                 error(" \n"
                         + " HSQLDB-Error\n"
