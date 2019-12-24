@@ -25,14 +25,10 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import me.leoko.advancedban.MethodInterface;
-import me.leoko.advancedban.Universal;
 import me.leoko.advancedban.manager.DatabaseManager;
 import me.leoko.advancedban.manager.PunishmentManager;
 import me.leoko.advancedban.utils.Punishment;
@@ -49,13 +45,11 @@ public class AdvancedBanConverter implements AutoCloseable {
     private int port = 3306;
     private Connection connection;
 	
-    private final Logger logger;
     private final File folder;
 	private final DatabaseManager db;
 	private final PunishmentManager punishments;
 	
-	public AdvancedBanConverter(Logger logger, File folder, DatabaseManager db, PunishmentManager punishments) {
-		this.logger = logger;
+	public AdvancedBanConverter(File folder, DatabaseManager db, PunishmentManager punishments) {
 		this.folder = folder;
 		this.db = db;
 		this.punishments = punishments;
@@ -73,13 +67,9 @@ public class AdvancedBanConverter implements AutoCloseable {
 		return !mysql() ? "MySQL (external)" : "HSQLDB (local)"; 
 	}
 	
-	public void doConversion() {
-		loadOldDb();
-		try {
-			convert();
-		} catch (SQLException ex) {
-			error("Old database retrieval failed", ex);
-		}
+	void doConversion(MethodInterface mi) throws SQLException, NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException, ClassNotFoundException {
+		loadOldDb(mi);
+		convert();
 	}
 	
 	@Override
@@ -87,139 +77,99 @@ public class AdvancedBanConverter implements AutoCloseable {
 		connection.close();
 	}
 	
-	private void convert() throws SQLException {		
-		// retrieve existing
-		HashMap<Integer, Punishment> punishmentNew = new HashMap<Integer, Punishment>();
-		HashMap<Integer, Punishment> historyNew = new HashMap<Integer, Punishment>();
-		punishments.getPunishments(SQLQuery.SELECT_ALL_PUNISHMENTS).forEach((punishment) -> {
-			punishmentNew.put(punishment.getId(), punishment);
-		});
-		punishments.getPunishments(SQLQuery.SELECT_ALL_PUNISHMENTS_HISTORY).forEach((punishment) -> {
-			historyNew.put(punishment.getId(), punishment);
-		});
+	private boolean equals(Punishment p1, Punishment p2) {
+		return p1.getType() == p2.getType() && p1.getReason() == p2.getReason() && p1.getStart() == p2.getStart() && p1.getEnd() == p2.getEnd();
+	}
+	
+	private boolean anyContains(Set<Punishment> set, Punishment punishment) {
+		for (Punishment check : set) {
+			if (equals(check, punishment)) {
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	private void convert() throws SQLException, NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException {		
 		// retrieve from old db
 		Set<Punishment> punishmentsOld = new HashSet<Punishment>();
-		try (ResultSet results1 = getFromOld(SQLQuery.SELECT_ALL_PUNISHMENTS)) {
+		Set<Punishment> historyOld = new HashSet<Punishment>();
+		try (ResultSet results1 = getFromOld(SQLQuery.SELECT_ALL_PUNISHMENTS);  ResultSet results2 = getFromOld(SQLQuery.SELECT_ALL_PUNISHMENTS_HISTORY)) {
 			while (results1.next()) {
 				punishmentsOld.add(punishments.getPunishmentFromResultSet(results1));
 			}
-		}
-		Set<Punishment> historyOld = new HashSet<Punishment>();
-		try (ResultSet results2 = getFromOld(SQLQuery.SELECT_ALL_PUNISHMENTS_HISTORY)) {
 			while (results2.next()) {
-				historyOld.add(this.punishments.getPunishmentFromResultSet(results2));
+				historyOld.add(punishments.getPunishmentFromResultSet(results2));
 			}
 		}
-		punishmentsOld.forEach((punishment) -> {
-			rewriteIdThenAddPunishment(punishment);
-		});
-		historyOld.forEach((punishment) -> {
-			addPunishmentHistory(punishment);
-		});
+		// get the id field once to avoid redundant reflection calls
+		Field idField = Punishment.class.getDeclaredField("id");
+		idField.setAccessible(true);
+		// add to new db
+		for (Punishment punishment : historyOld) {
+			
+			// check if the punishment is also an active punishment
+			if (anyContains(punishmentsOld, punishment)) {
+				addToPunishmentsAndHistory(idField, punishment, db); // if so, add the punishment to new history and new punishments
+			} else {
+				addToHistoryOnly(idField, punishment, db); // otherwise, add the punishment to new history only
+			}
+			
+		}
 	}
 	
-	private Object[] punParams(Punishment punishment) {
-		return new Object[] {punishment.getName(), punishment.getUuid(), punishment.getReason(), punishment.getOperator(), punishment.getType().name(), punishment.getStart(), punishment.getEnd(), punishment.getCalculation()};
+	private static void addToPunishmentsAndHistory(Field idField, Punishment punishment, DatabaseManager db) throws IllegalArgumentException, IllegalAccessException, SQLException {
+		idField.set(punishment, -1);
+		db.executeStatement(SQLQuery.INSERT_PUNISHMENT_HISTORY, punParams(punishment));
+		db.executeStatement(SQLQuery.INSERT_PUNISHMENT, punParams(punishment));
+		try (ResultSet rs = db.executeResultStatement(SQLQuery.SELECT_EXACT_PUNISHMENT, punishment.getUuid(), punishment.getStart(), punishment.getType().name())){
+			if (rs.next()) {
+				idField.set(punishment, rs.getInt("id"));
+			} else {
+				throw new IllegalStateException("Could not rewrite ID for punishment!");
+			}
+		}
 	}
 	
-	private void addPunishmentHistory(Punishment punishment) {
+	private static void addToHistoryOnly(Field idField, Punishment punishment, DatabaseManager db) throws IllegalArgumentException, IllegalAccessException {
+		idField.set(punishment, -1);
 		db.executeStatement(SQLQuery.INSERT_PUNISHMENT_HISTORY, punParams(punishment));
 	}
 	
-	private void rewriteIdThenAddPunishment(Punishment punishment) {
-		try {
-			Field idField = Punishment.class.getDeclaredField("id");
-			idField.setAccessible(true);
-			idField.set(punishment, -1);
-			db.executeStatement(SQLQuery.INSERT_PUNISHMENT, punParams(punishment));
-			try (ResultSet rs = db.executeResultStatement(SQLQuery.SELECT_EXACT_PUNISHMENT, punishment.getUuid(), punishment.getStart(), punishment.getType().name())){
-				if (rs.next()) {
-					idField.set(punishment, rs.getInt("id"));
-				} else {
-					error("Could not rewrite id for " + punishment);
-				}
-			}
-		} catch (NoSuchFieldException | SecurityException | IllegalArgumentException | IllegalAccessException | SQLException ex) {
-			error("Could not rewrite id for " + punishment, ex);
-		}
+	private static Object[] punParams(Punishment punishment) {
+		return new Object[] {punishment.getName(), punishment.getUuid(), punishment.getReason(), punishment.getOperator(), punishment.getType().name(), punishment.getStart(), punishment.getEnd(), punishment.getCalculation()};
 	}
 	
-	private void error(String message) {
-		logger.log(Level.WARNING, ERROR_MSG + " " + message);
-	}
-	
-	private void error(String message, Throwable cause) {
-		logger.log(Level.WARNING, ERROR_MSG + " " + message, cause);
-	}
-	
-	private void loadOldDb() {
+	private void loadOldDb(MethodInterface mi) throws SQLException, ClassNotFoundException {
         if (mysql()) {
-            try {
-            	Class.forName("org.hsqldb.jdbc.JDBCDriver");
-            } catch (ClassNotFoundException ex) {
-                error("§cERROR: failed to load HSQLDB JDBC driver.", ex);
-                return;
-            }
-            try {
-                connection = DriverManager.getConnection("jdbc:hsqldb:file:" + new File(folder.getParentFile(), "AdvancedBan") + "/data/storage;hsqldb.lock_file=false", "SA", "");
-            } catch (SQLException ex) {
-                error(" \n"
-                        + " HSQLDB-Error\n"
-                        + " Could not connect to HSQLDB-Server!\n"
-                        + " Disabling plugin!\n"
-                        + " Skype: Leoko33\n"
-                        + " Issue tracker: https://github.com/DevLeoko/AdvancedBan/issues\n"
-                        + " \n",
-                        ex
-                );
-            }
+            Class.forName("org.hsqldb.jdbc.JDBCDriver");
+            connection = DriverManager.getConnection("jdbc:hsqldb:file:" + new File(folder.getParentFile(), "AdvancedBan") + "/data/storage;hsqldb.lock_file=false", "SA", "");
         } else {
-        	MethodInterface mi = Universal.get().getMethods();
             ip = mi.getString(mi.getMySQLFile(), "MySQL.IP", "Unknown");
             dbName = mi.getString(mi.getMySQLFile(), "MySQL.DB-Name", "Unknown");
             usrName = mi.getString(mi.getMySQLFile(), "MySQL.Username", "Unknown");
             password = mi.getString(mi.getMySQLFile(), "MySQL.Password", "Unknown");
             port = mi.getInteger(mi.getMySQLFile(), "MySQL.Port", 3306);
-            try {
-                connection = DriverManager.getConnection("jdbc:mysql://" + ip + ":" + port + "/" + dbName + "?verifyServerCertificate=false&useSSL=false&autoReconnect=true&useUnicode=true&characterEncoding=utf8", usrName, password);
-            } catch (SQLException exc) {
-               error(
-                        " \n"
-                        + " MySQL-Error\n"
-                        + " Could not connect to MySQL-Server!\n"
-                        + " Disabling plugin!\n"
-                        + " Check your MySQL.yml\n"
-                        + " Skype: Leoko33\n"
-                        + " Issue tracker: https://github.com/DevLeoko/AdvancedBan/issues \n"
-                        + " \n",
-                        exc
-                );
-            }
+            connection = DriverManager.getConnection("jdbc:mysql://" + ip + ":" + port + "/" + dbName + "?verifyServerCertificate=false&useSSL=false&autoReconnect=true&useUnicode=true&characterEncoding=utf8", usrName, password);
         }
 	}
 	
-	private ResultSet getFromOld(SQLQuery query, Object...parameters) {
+	private ResultSet getFromOld(SQLQuery query, Object...parameters) throws NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException, SQLException {
 		String sql = getAlt(query);
 		try (PreparedStatement statement = connection.prepareStatement(sql)) {
 			for (int n = 0; n < parameters.length; n++) {
 				statement.setObject(n, parameters[n]);
 			}
 			return statement.executeQuery();
-		} catch (SQLException ex) {}
-		return null;
+		}
 	}
 	
-	private String getAlt(SQLQuery query) {
-		try {
-			Field mysql = SQLQuery.class.getDeclaredField("mysql");
-			Field hsqldb = SQLQuery.class.getDeclaredField("hsqldb");
-			mysql.setAccessible(true);
-			hsqldb.setAccessible(true);
-			return (String) (mysql() ? hsqldb.get(query) : mysql.get(query));
-		} catch (NoSuchFieldException | SecurityException | IllegalArgumentException | IllegalAccessException ex) {
-			ex.printStackTrace();
-		}
-		return null;
+	private String getAlt(SQLQuery query) throws NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException {
+		Field mysql = SQLQuery.class.getDeclaredField("mysql");
+		Field hsqldb = SQLQuery.class.getDeclaredField("hsqldb");
+		mysql.setAccessible(true);
+		hsqldb.setAccessible(true);
+		return (String) (mysql() ? hsqldb.get(query) : mysql.get(query));
 	}
 	
 }

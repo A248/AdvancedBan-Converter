@@ -18,10 +18,9 @@
  */
 package space.arim.advancedban.converter;
 
-import java.sql.SQLException;
-
 import org.bukkit.plugin.java.JavaPlugin;
 
+import me.leoko.advancedban.Universal;
 import me.leoko.advancedban.manager.DatabaseManager;
 import me.leoko.advancedban.manager.PunishmentManager;
 
@@ -29,12 +28,16 @@ public class AdvancedBanConverterBukkit extends JavaPlugin {
 
 	@Override
 	public void onEnable() {
-		try (AdvancedBanConverter converter = new AdvancedBanConverter(getLogger(), getDataFolder(), DatabaseManager.get(), PunishmentManager.get())) {
-			converter.doConversion();
-		} catch (SQLException ex) {
-			getLogger().info("Looks like conversions went fine, but the connection to the old database wasn't closed. This bug is not catastrophic, but it will use some of your RAM unnecessarily while the server is still running.");
+		try (AdvancedBanConverter converter = new AdvancedBanConverter(getDataFolder(), DatabaseManager.get(), PunishmentManager.get())) {
+			converter.doConversion(Universal.get().getMethods());
+		} catch (Exception ex) {
+			getLogger().info("Error encountered:");
+			ex.printStackTrace();
 		}
-		getLogger().info("Completed all actions. You should now remove AdvancedBan-Converter if it was successful.");
+		getLogger().info("Completed all actions.");
+		getLogger().warning("----");
+		getLogger().warning("You should now remove AdvancedBan-Converter if it was successful.");
+		getLogger().warning("----");
 	}
 	
 }
