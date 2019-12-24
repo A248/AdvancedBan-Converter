@@ -1,5 +1,5 @@
 /* 
- * AdvancedBan-Converter
+ * AdvancedBan-Converter, a basic data converter for AdvancedBan
  * Copyright © 2019 Anand Beh <https://www.arim.space>
  * 
  * AdvancedBan-Converter is free software: you can redistribute it and/or modify
