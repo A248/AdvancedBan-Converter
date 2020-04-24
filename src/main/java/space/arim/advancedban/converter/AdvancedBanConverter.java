@@ -157,7 +157,7 @@ public class AdvancedBanConverter implements AutoCloseable {
 	private ResultSet getFromOld(SQLQuery query, Object...parameters) throws NoSuchFieldException, SecurityException, IllegalArgumentException, IllegalAccessException, SQLException {
 		String sql = getAlt(query);
 		try (PreparedStatement statement = connection.prepareStatement(sql)) {
-			for (int n = 0; n < parameters.length; n++) {
+			for (int n = 1; n <= parameters.length; n++) {
 				statement.setObject(n, parameters[n]);
 			}
 			return statement.executeQuery();
