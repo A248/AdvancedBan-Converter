@@ -12,9 +12,9 @@
 	
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<advancedban.version>2.1.6-SNAPSHOT</advancedban.version>
-		<spigot.version>1.12-R0.1-SNAPSHOT</spigot.version>
-		<bungee.version>1.12-SNAPSHOT</bungee.version>
+		<advancedban.version>2.1.7</advancedban.version>
+		<spigot.version>1.8.8-R0.1-SNAPSHOT</spigot.version>
+		<bungee.version>1.15-SNAPSHOT</bungee.version>
 	</properties>
 	
 	<build>
@@ -75,4 +75,10 @@
         </dependency>
 	</dependencies>
 	
+	<repositories>
+		<repository>
+			<id>AdvancedBan-mvn-repo</id>
+			<url>https://maven.pkg.github.com/DevLeoko/AdvancedBan</url>
+		</repository>
+	</repositories>
 </project>
